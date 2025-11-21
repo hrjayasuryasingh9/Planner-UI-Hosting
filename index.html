@@ -1,0 +1,362 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFX AI Planner Copilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; display: flex; }
+        
+        /* Board Area */
+        #board-container {
+            flex: 1;
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        .line-row {
+            display: flex;
+            height: 140px;
+            position: relative;
+            border-bottom: 1px dashed #cbd5e1;
+            transition: background 0.2s;
+        }
+        .line-row:hover { background-color: rgba(255,255,255,0.6); }
+
+        .line-header {
+            width: 120px;
+            flex-shrink: 0;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: white;
+            z-index: 10;
+            position: sticky;
+            left: 0;
+            color: #475569;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.02);
+        }
+
+        .strip-block {
+            position: absolute;
+            top: 20px;
+            height: 100px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            font-size: 0.75rem;
+            padding: 10px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 1;
+        }
+        .strip-block:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 15px 20px -5px rgba(0, 0, 0, 0.1);
+            z-index: 20;
+            border-color: #0ea5e9;
+        }
+        .strip-block::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background-color: rgba(0,0,0,0.1);
+        }
+
+        .strip-header { font-weight: 600; color: #1e293b; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Copilot Sidebar */
+        .copilot-container {
+            width: 420px;
+            background: white;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #e2e8f0;
+            z-index: 50;
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(0);
+        }
+
+        .copilot-container.collapsed {
+            transform: translateX(100%);
+            box-shadow: none;
+        }
+
+        /* Messages */
+        .msg-ai { background-color: #f1f5f9; border-radius: 16px 16px 16px 4px; padding: 14px 18px; margin-bottom: 16px; max-width: 90%; font-size: 14px; color: #334155; line-height: 1.6; }
+        .msg-user { background-color: #0ea5e9; color: white; border-radius: 16px 16px 4px 16px; padding: 14px 18px; margin-bottom: 16px; max-width: 90%; align-self: flex-end; font-size: 14px; line-height: 1.6; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2); }
+        
+        /* Action Cards */
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .action-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            height: 90px;
+        }
+        .action-card:hover { 
+            border-color: #0ea5e9; 
+            background-color: #f0f9ff; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+        }
+        .action-card svg { width: 24px; height: 24px; margin-bottom: 6px; color: #64748b; transition: color 0.2s; }
+        .action-card:hover svg { color: #0ea5e9; }
+        .action-title { font-size: 0.8rem; font-weight: 600; color: #334155; }
+
+        /* Typing Indicator */
+        .typing-indicator span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #94a3b8;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+            margin: 0 2px;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* Floating Trigger Button */
+        #copilot-trigger {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #06b6d4, #2563eb);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+        #copilot-trigger.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        #copilot-trigger:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 35px rgba(37, 99, 235, 0.5);
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .msg-ai strong { font-weight: 600; color: #0f172a; }
+        .msg-ai ul { list-style-type: disc; margin-left: 20px; margin-top: 4px; }
+        .msg-ai li { margin-bottom: 4px; }
+
+        /* Proposal Cards CSS */
+        .proposal-card {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #action-dropdown.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+<body>
+
+    <div id="board-container">
+        <!-- Board content injected by JS -->
+        <div class="fixed top-6 left-6 bg-white/90 backdrop-blur px-5 py-3 rounded-xl shadow-sm border border-gray-200 z-40 flex items-center gap-3">
+            <div class="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-sm font-bold text-gray-800">Factory: Rajkumar1</h2>
+                <p class="text-xs text-gray-500 font-medium">Production Lines & Orders</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Trigger -->
+    <button id="copilot-trigger">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8">
+            <path fill-rule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813a3.75 3.75 0 002.576-2.576l.813-2.846A.75.75 0 019 4.5zM6.97 11.03a.75.75 0 111.06-1.06l.75.75a.75.75 0 11-1.06 1.06l-.75-.75zM16.5 15.75a.75.75 0 100-1.5.75.75 0 000 1.5zM16.5 13.5a.75.75 0 111.5 0 .75.75 0 01-1.5 0z" clip-rule="evenodd" />
+        </svg>
+    </button>
+
+<div class="copilot-container" id="copilot-sidebar">
+
+    <!-- HEADER -->
+    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5">
+                    <path fill-rule="evenodd"
+                        d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75..."
+                        clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-800 text-base tracking-tight">WFX Copilot</h1>
+                <p class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Production AI</p>
+            </div>
+        </div>
+
+        <button id="btn-close-copilot"
+            class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- CHAT STREAM -->
+    <div id="chat-stream" class="flex-1 overflow-y-auto p-5 flex flex-col no-scrollbar bg-slate-50/50">
+
+        <div class="msg-ai">
+            👋 <strong>Good Morning!</strong><br>
+            I've analyzed the schedule for <span class="text-blue-600 font-medium">Rajkumar1</span>.
+            I noticed 3 potential delays in the upcoming week.<br><br>
+            How can I assist you today?
+        </div>
+    </div>
+
+    <!-- VIEW PROMPTS BUTTON -->
+    <div class="px-4 pt-2">
+        <button id="view-prompts-btn"
+            class="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 transition w-fit">
+            View Prompts
+        </button>
+    </div>
+
+    <!-- ACTION DROPDOWN PANEL (hidden by default) -->
+    <div id="action-dropdown"
+        class="hidden px-4 transition-all duration-300 opacity-0 -translate-y-2 pointer-events-none">
+
+        <div id="command-hub"
+            class="bg-white border border-gray-200 rounded-xl p-4 shadow-xl mt-2">
+
+            <div class="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider pl-1">
+                AI Actions
+            </div>
+
+    <div class="action-grid"> 
+        <div class="action-card group" id="btn-optimize-buyers"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"> 
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+            </svg> 
+            <span class="action-title">Optimize Buyers</span> 
+        </div> 
+        <div class="action-card group" id="btn-optimize-orders"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"> 
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /> 
+            </svg> 
+            <span class="action-title">Optimize Orders</span> 
+        </div>
+         <div class="action-card group" id="btn-optimize-board"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"> 
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /> 
+            </svg> 
+            <span class="action-title">Optimize Board</span> 
+        </div> 
+        <div class="action-card group" id="btn-run-simulations"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /> 
+            </svg> 
+            <span class="action-title">Run Simulations</span> 
+        </div> 
+    </div>
+        </div>
+    </div>
+
+    <!-- INPUT AREA -->
+<div class="p-4 border-t border-gray-100 bg-white z-10 pb-6"> 
+    <div class="relative"> 
+        <input type="text" id="user-input" placeholder="Ask Copilot..." class="w-full border border-slate-200 rounded-xl pl-4 pr-12 py-3.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm text-slate-700 placeholder-slate-400 bg-slate-50 transition-all"> 
+        <button id="send-btn" class="absolute right-2 top-2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"> 
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /> 
+            </svg> 
+        </button> 
+    </div> 
+</div>
+
+</div>
+
+
+<!-- ACTION DROPDOWN SCRIPT -->
+<script>
+    const btnView = document.getElementById("view-prompts-btn");
+const dropdown = document.getElementById("action-dropdown");
+
+btnView.addEventListener("click", () => {
+    dropdown.classList.toggle("active");
+    dropdown.classList.toggle("hidden");
+
+    btnView.textContent = dropdown.classList.contains("active")
+        ? "Hide Actions"
+        : "Show Actions";
+});
+
+</script>
+
+
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
