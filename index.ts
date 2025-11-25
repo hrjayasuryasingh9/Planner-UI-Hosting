@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import factoryData from "./testbody(1).json" assert { type: "json" };
+import { marked } from "marked";
 
 /* 
   WFX AI Planner Copilot 
@@ -144,11 +144,11 @@ function appendUserMessage(text) {
     chatStream.scrollTop = chatStream.scrollHeight;
 }
 
-function appendAIMessage(htmlContent) {
+async function appendAIMessage(htmlContent) {
     const div = document.createElement('div');
     div.className = 'msg-ai';
     // Use Marked to parse Markdown
-    div.innerHTML = marked.parse(htmlContent);
+    div.innerHTML = await marked.parse(htmlContent);
     chatStream.appendChild(div);
     chatStream.scrollTop = chatStream.scrollHeight;
 }
