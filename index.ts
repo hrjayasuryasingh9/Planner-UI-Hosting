@@ -663,23 +663,6 @@ function updateBoardState(proposal, shouldRender = true) {
 
 // --- GEMINI FALLBACK (General Chat) ---
 
-async function askGemini(promptContext, actionType) {
-    const thinkingId = showThinking();
-    try {
-        const systemInstruction = `You are a helpful assistant for a garment factory.`;
-        const response = await ai.models.generateContent({
-            model: MODEL,
-            contents: [{ role: 'user', parts: [{ text: promptContext }] }],
-            config: { systemInstruction }
-        });
-        removeThinking(thinkingId);
-        appendAIMessage(response.text);
-    } catch (error) {
-        console.error(error);
-        removeThinking(thinkingId);
-        appendAIMessage("I'm having trouble connecting to the AI services right now.");
-    }
-}
 
 
 // --- EVENT HANDLERS ---
