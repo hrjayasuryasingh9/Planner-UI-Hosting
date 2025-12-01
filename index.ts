@@ -5,7 +5,7 @@ import { marked } from "marked";
 
 /* 
   WFX AI Planner Copilot 
-  Integrates with WFX Optimization Engine & Google Gemini
+  Integrates with WFX Optimization Engine & Ganoogle Gemini
 */
 
 // --- CONFIGURATION & DATA ---
