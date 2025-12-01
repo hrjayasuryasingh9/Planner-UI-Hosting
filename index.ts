@@ -3,15 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import factoryData from "./testbody(1).json" assert { type: "json" };
 import { marked } from "marked";
 
-/* 
-  WFX AI Planner Copilot 
-  Integrates with WFX Optimization Engine & Ganoogle Gemini
-*/
-
-// --- CONFIGURATION & DATA ---
-const API_KEY = process.env.API_KEY;
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-const MODEL = "gemini-2.5-flash";
 const OPTIMIZATION_API_URL = "https://13.203.235.227/optimize";
 const SIMULATION_API_URL = "https://13.203.235.227/generate-scenarios";
 
